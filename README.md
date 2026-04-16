@@ -98,27 +98,64 @@ The dotted line is the whole point. Knowledge flows into daily work automaticall
 
 ## Getting Started
 
-**You need:** [Obsidian](https://obsidian.md/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) pointed at your vault directory.
+**You need:**
+- [Obsidian](https://obsidian.md/) (free, any platform)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (requires an Anthropic API key or a Claude Pro/Max subscription)
+- [Obsidian Web Clipper](https://obsidian.md/clipper) (free browser extension, for capturing web sources directly into `knowledge/raw/`)
 
-1. **Clone into your vault directory**
-   ```bash
-   git clone https://github.com/Nocode-Cyclope/dual-brain.git my-vault
-   cd my-vault
-   ```
+### 1. Clone the repo
 
-2. **Open in Obsidian** and start a Claude Code session in the same directory.
+```bash
+git clone https://github.com/Nocode-Cyclope/dual-brain.git my-vault
+cd my-vault
+```
 
-3. **Run the setup**
-   ```
-   /setup-dual-brain
-   ```
-   This asks for your name and domains, scaffolds the folder structure, and tailors the `CLAUDE.md` to your setup.
+This creates a folder called `my-vault` with the full Dual Brain structure inside.
 
-4. **Start working.**
-   - `/new meeting with Sarah about the Q3 launch` captures, classifies, and files it
-   - `/today` builds your daily plan from due tasks and active projects
-   - `/knowledge-ingest` processes a source document into linked wiki pages
-   - `/produce concept for the Q3 launch strategy` writes a deliverable backed by your wiki
+### 2. Open the vault in Obsidian
+
+Open Obsidian. Click **"Open folder as vault"** (bottom left on first launch, or via the vault switcher). Select the `my-vault` folder you just cloned. Obsidian will index the files and you can browse the structure.
+
+### 3. Start Claude Code in the vault directory
+
+Open a terminal, navigate to the same folder, and launch Claude Code:
+
+```bash
+cd my-vault
+claude
+```
+
+Claude Code reads the `CLAUDE.md` in the vault root and loads all 13 skills automatically.
+
+### 4. Run the setup wizard
+
+```
+/setup-dual-brain
+```
+
+This asks for your name, your preferred language, your work domains, and your personal domains. It scaffolds the folder structure, creates template files, and tailors `CLAUDE.md` to your setup.
+
+### 5. Start working
+
+```
+/new meeting with Sarah about the Q3 launch
+```
+Captures, classifies, and files it as a project, task, or person note.
+
+```
+/today
+```
+Builds your daily plan from due tasks, active projects, and relevant knowledge.
+
+```
+/knowledge-ingest
+```
+Drop a source file into `knowledge/raw/` (or clip a web page there using the Obsidian Web Clipper), then run this to process it into structured, interlinked wiki pages.
+
+```
+/produce concept for the Q3 launch strategy
+```
+Writes a deliverable backed by your wiki. Pulls in relevant frameworks and prior work automatically.
 
 The system builds itself as you use it. Capture into Operations, ingest into Knowledge, and the connections grow naturally.
 
@@ -168,6 +205,7 @@ None of these are required. All of them make the system better as your vault gro
 
 | Plugin | What it does | Why it matters here |
 |---|---|---|
+| [Web Clipper](https://obsidian.md/clipper) | Clip web pages directly into your vault | The fastest way to get sources into `knowledge/raw/`. Clip an article, run `/knowledge-ingest`, done. Configure the default save location to `knowledge/raw/`. |
 | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Query frontmatter across all files | The `type:` field is vault-wide by design. Queries like `TABLE due, status WHERE type = "task" AND status = "pending"` work across both layers. This is the plugin that turns frontmatter from metadata into an interface. |
 | [Templater](https://github.com/SilentVoid13/Templater) | Template engine for new files | Pairs well with `/new` for consistent frontmatter when you create files manually in Obsidian. |
 | [Calendar](https://github.com/liamcain/obsidian-calendar-plugin) | Calendar view for daily notes | Makes `ops/daily/` navigable. Click a date, see the plan. |
