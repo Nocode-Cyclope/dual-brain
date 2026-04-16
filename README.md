@@ -176,7 +176,7 @@ None of these are required. All of them make the system better as your vault gro
 
 This project builds directly on the work of others:
 
-- **Andrej Karpathy** published the [original idea](https://x.com/karpathy/status/1871554790498951368) for LLM-maintained knowledge bases. The insight that an LLM can be your librarian, not just your search engine, started everything.
+- **Andrej Karpathy** published the [original idea](https://x.com/karpathy/status/1871554790498951368) and the [reference implementation](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) for LLM-maintained knowledge bases. The insight that an LLM can be your librarian, not just your search engine, started everything.
 - **Nicholas Spisak** built [second-brain](https://github.com/NicholasSpisak/second-brain): the wiki architecture and knowledge operations (ingest, query, lint). The Knowledge Layer stands on this foundation.
 - **Brad** built [second-brain](https://github.com/bradautomates/second-brain): the operations layer and active second brain patterns (capture, classify, daily review). The Operations Layer adapts these ideas.
 - **Claude Code** by Anthropic was the development partner for the entire implementation. Every skill, every workflow, every line of `CLAUDE.md` was built in collaboration.
