@@ -160,9 +160,9 @@ None of these are required. All of them make the system better as your vault gro
 
 | Tool | What it does | When it matters |
 |---|---|---|
-| [qmd](https://www.npmjs.com/package/@tobilu/qmd) | Local search engine for markdown files with hybrid BM25/vector search | Once your wiki passes ~100 pages, index scanning gets slow. `qmd` makes `/knowledge-query` fast again. Install: `npm i -g @tobilu/qmd` |
-| [summarize](https://www.npmjs.com/package/@steipete/summarize) | Summarizes links, files, and media from the CLI | Speeds up source preparation before dropping files into `knowledge/raw/`. Install: `npm i -g @steipete/summarize` |
-| [agent-browser](https://www.npmjs.com/package/agent-browser) | Browser automation CLI for AI agents | Useful for `/delegate` tasks that involve gathering information from the web. Install: `npm i -g agent-browser` |
+| [qmd](https://github.com/tobi/qmd) | Local search engine for markdown files with hybrid BM25/vector search | Once your wiki passes ~100 pages, index scanning gets slow. `qmd` makes `/knowledge-query` fast again. Install: `npm i -g @tobilu/qmd` |
+| [summarize](https://github.com/steipete/summarize) | Summarizes links, files, and media from the CLI | Speeds up source preparation before dropping files into `knowledge/raw/`. Install: `npm i -g @steipete/summarize` |
+| [agent-browser](https://github.com/vercel-labs/agent-browser) | Browser automation CLI for AI agents | Useful for `/delegate` tasks that involve gathering information from the web. Install: `npm i -g agent-browser` |
 
 ### Obsidian Plugins
 
