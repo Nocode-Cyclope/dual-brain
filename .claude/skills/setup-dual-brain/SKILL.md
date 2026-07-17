@@ -1,10 +1,13 @@
 ---
 name: setup-dual-brain
 description: >
-  Interactive onboarding wizard for the Dual-Brain vault. Scaffolds the complete folder
-  structure, creates template files, and customizes CLAUDE.md with the user's name and
-  domains. Use when the user says "setup", "initialize", "onboard", "scaffold", or is
-  starting with a fresh vault.
+  Interactive onboarding wizard for a FRESH Dual-Brain vault. Scaffolds the folder
+  structure derived from the CLAUDE.md Architecture block, creates template files, and
+  customizes the template CLAUDE.md with the user's name and domains. Use only when the
+  user is standing up a new, empty vault ("set up the dual brain", "initialize this
+  vault", "scaffold a fresh vault"). Do NOT trigger on everyday uses of "setup" or
+  "initialize", and never on an established, customized vault — structural changes there
+  go through /second-brain-upgrade.
 allowed-tools: Bash Read Write Edit Glob Grep AskUserQuestion
 ---
 
@@ -15,97 +18,66 @@ Interactive setup that scaffolds a complete Dual-Brain vault and personalizes it
 ## Overview
 
 This wizard:
-1. Asks for the user's name/alias, work domains, and personal domains
-2. Creates the full directory structure
-3. Generates empty template files (chronicle.md, index.md, log.md, overview.md)
-4. Customizes CLAUDE.md with the user's name and domain taxonomy
-5. Confirms what was created
+0. Guards against re-runs on an established vault (abort + gap report, no writes)
+1. Asks for the user's name/alias, work domains, personal domains, and primary language
+2. Creates the directory structure derived from the CLAUDE.md Architecture block
+3. Generates empty template files (chronicle.md, index.md, glossary.md, log.md, overview.md)
+4. Customizes the template CLAUDE.md with the user's name and domain taxonomy
+5. Verifies the result against the Architecture block and reports the diff
+
+## Step 0: Re-Run Guard — Detect an Established Vault
+
+**Runs before everything else. No question, no write before this check passes.**
+
+A blind re-run on a living vault is destructive: Step 4 would replace a grown domain taxonomy and customized CLAUDE.md sections with generic template text. Check two signals:
+
+1. **CLAUDE.md customized?** If `CLAUDE.md` exists in the vault root, grep it for the Step 4b template line (search string: `configured during`). Placeholder absent → customized.
+2. **Vault in use?** Glob `ops/**/*`. Any file present → in use.
+
+If **either** signal fires, this is an established vault — **abort the wizard:**
+
+- Skip Steps 1–4 entirely. Write nothing.
+- Diff the existing structure against the CLAUDE.md Architecture block (derivation as in Step 2) and present only the **missing** directories/files as a proposal.
+- Create missing elements only after an explicit OK from the user — and nothing beyond them.
+- **Never** rewrite or replace CLAUDE.md sections that deviate from the template; those deviations are the customization. Structural changes to an established CLAUDE.md go through `/second-brain-upgrade`, not through this wizard.
+
+Only when both signals are clean (template or absent CLAUDE.md, empty `ops/`) proceed to Step 1.
 
 ## Step 1: Gather User Information
 
-Use `AskUserQuestion` for each piece of information.
+Ask via `AskUserQuestion`, one question per item. Exact wording is free — these are the intents:
 
-### 1a. Name or Alias
-
-```
-Question: "What name or alias should I use to address you throughout the vault?"
-Header: "Your Name"
-```
-
-Store the response as `$USER_NAME`.
-
-### 1b. Work Domains
-
-```
-Question: "What are your work domains? These become tag categories (e.g., 'engineering', 'product-management', 'sales', 'marketing'). List as many as apply, separated by commas."
-Header: "Work Domains"
-```
-
-Store as `$WORK_DOMAINS` (list). Each becomes a tag like `work/<domain>`.
-
-### 1c. Personal Domains
-
-```
-Question: "What personal domains would you like to track? (e.g., 'fitness', 'photography', 'finance', 'travel', 'recipes'). Leave empty if none."
-Header: "Personal Domains"
-```
-
-Store as `$PERSONAL_DOMAINS` (list). Each becomes a tag like `personal/<domain>`.
-
-### 1d. Primary Language
-
-```
-Question: "What language should wiki pages and operations notes be written in?"
-Header: "Language"
-Options:
-  - "English"
-  - "German (Deutsch)"
-  - "Spanish (Español)"
-  - "French (Français)"
-  (Other allows custom entry)
-```
-
-Store as `$PRIMARY_LANGUAGE`. Default: English.
+| Variable | Intent | Notes |
+|---|---|---|
+| `$USER_NAME` | Name or alias to address the user throughout the vault | slug: `$USER_NAME_SLUG` (kebab-case) |
+| `$WORK_DOMAINS` | Work domains, comma-separated (e.g. engineering, sales, marketing) | each becomes a `work/<domain>` tag |
+| `$PERSONAL_DOMAINS` | Personal domains, comma-separated (e.g. fitness, travel) | each becomes a `personal/<domain>` tag; may be empty |
+| `$PRIMARY_LANGUAGE` | Language for wiki pages and operations notes | offer English / German / Spanish / French, allow custom; default English |
 
 ## Step 2: Scaffold Directory Structure
 
-Create all required directories. Check each before creating to avoid errors on existing vaults.
+**Do not hardcode the directory list.** The single source for the vault structure is the fenced `text` code block under `## Architecture` in the vault root `CLAUDE.md` (guaranteed present — see Edge Cases). Derive the scaffold from it:
 
-```
-ops/
-ops/inbox/
-ops/projects/
-ops/tasks/
-ops/daily/
-ops/weekly/
-ops/people/
-ops/context/
+1. Read the Architecture block from `CLAUDE.md`.
+2. Parse it: entries ending in `/` are directories (nesting = indentation), entries ending in `.md` are template files (handled in Step 3).
+3. `mkdir -p` each directory that does not exist; skip existing ones. Record created vs. skipped for the Step 5 report.
 
-knowledge/
-knowledge/raw/
-knowledge/raw/assets/
-knowledge/wiki/
-knowledge/wiki/sources/
-knowledge/wiki/entities/
-knowledge/wiki/concepts/
-knowledge/wiki/synthesis/
+This keeps the wizard in sync automatically when the Architecture block gains new elements — as happened when `knowledge/wiki/skills/`, `knowledge/wiki/glossary.md`, and `knowledge/wiki/overview.md` joined the architecture and an older hardcoded list never learned about them.
 
-output/
-archive/
-```
-
-Use `mkdir -p` for each path.
+**Shipped with the template repo, not created here:** `.claude/hooks/`, `.claude/settings.json`, and `.claude/agents/` are part of the template repository itself. The wizard **verifies** they exist and flags them in the Step 5 report if missing (the user should re-clone or copy them from the template repo) — it does not create or overwrite them.
 
 ## Step 3: Create Template Files
+
+Create every `.md` file the Architecture block lists, using the templates below. If the block lists an `.md` file with no template here, create it with an H1 title only and flag it in the Step 5 report.
 
 ### `ops/chronicle.md`
 
 ```markdown
 # Chronicle
 
-Operational audit trail. Log notable decisions, important completions, project status changes, promotions to knowledge, and cleanup events.
+Operational audit trail. Log notable decisions, important completions, project status changes, promotions to knowledge, and cleanup events. Entries are ordered newest-first.
 
-<!-- Append entries in this format:
+<!-- Insert entries at the top in this format:
 ## [YYYY-MM-DD] <operation> | <title>
 - Details
 -->
@@ -113,22 +85,27 @@ Operational audit trail. Log notable decisions, important completions, project s
 
 ### `knowledge/wiki/index.md`
 
+One `## <Section>` per `knowledge/wiki/` subdirectory found in the Architecture block (currently: Sources, Entities, Concepts, Skills, Synthesis), each carrying the placeholder comment:
+
 ```markdown
 # Wiki Index
 
 Master catalog and navigation page for the knowledge wiki.
 
-## Sources
+## <Section — one per wiki subdirectory>
 <!-- - [[Page-Name]] — one-liner description -->
+```
 
-## Entities
-<!-- - [[Page-Name]] — one-liner description -->
+### `knowledge/wiki/glossary.md`
 
-## Concepts
-<!-- - [[Page-Name]] — one-liner description -->
+```markdown
+# Glossary
 
-## Synthesis
-<!-- - [[Page-Name]] — one-liner description -->
+Synonym bridge between query phrasing and canonical wiki page names. First stop for retrieval, before grep and index.
+
+Format: `- [[canonical-page]] — alias1, alias2, alias3`
+
+<!-- Extend opportunistically during ingest and after failed queries. Include cross-language aliases where the vault language differs from source or technical terms. -->
 ```
 
 ### `knowledge/wiki/log.md`
@@ -136,9 +113,9 @@ Master catalog and navigation page for the knowledge wiki.
 ```markdown
 # Knowledge Log
 
-Chronological operations log for the knowledge layer.
+Chronological operations log for the knowledge layer. Entries are ordered newest-first.
 
-<!-- Append entries in this format:
+<!-- Insert entries at the top in this format:
 ## [YYYY-MM-DD] ingest | Source Title
 - Source: knowledge/raw/.../filename.md
 - Created: entities/xyz.md, concepts/abc.md
@@ -159,7 +136,9 @@ Running synthesis of the overall knowledge base. Update only when the big pictur
 
 ## Step 4: Customize CLAUDE.md
 
-Read the existing `CLAUDE.md` in the vault root. Apply the following customizations:
+Read the existing `CLAUDE.md` in the vault root. Apply the following customizations.
+
+**Precondition (Step 0):** this step runs only on a template CLAUDE.md. Before each substep, verify its anchor still exists (4a: the generic name reference, 4b: the default language line, 4c: the generic domain taxonomy). Anchor missing → that section is customized: skip the substep, record it as skipped for the Step 5 report, leave the section untouched. Never replace CLAUDE.md content that deviates from the template — structural changes to an established CLAUDE.md go through `/second-brain-upgrade`.
 
 ### 4a. User Name
 
@@ -207,43 +186,39 @@ Add new domains at any time — update this section accordingly.
 
 After editing, read CLAUDE.md back to verify the changes are correct and the file is not corrupted.
 
-## Step 5: Confirmation Report
+## Step 5: Verify and Report
 
-Present a summary to the user:
+Do not copy a summary from this instruction file — **measure it**:
 
-```
-Dual-Brain vault setup complete!
-
-**User:** $USER_NAME
-
-**Directories created:**
-- ops/ (inbox, projects, tasks, daily, weekly, people, context)
-- knowledge/ (raw, raw/assets, wiki, wiki/sources, wiki/entities, wiki/concepts, wiki/synthesis)
-- output/
-- archive/
-
-**Template files created:**
-- ops/chronicle.md
-- knowledge/wiki/index.md
-- knowledge/wiki/log.md
-- knowledge/wiki/overview.md
-
-**CLAUDE.md customized with:**
-- Name: $USER_NAME
-- Language: $PRIMARY_LANGUAGE
-- Work domains: $WORK_DOMAINS
-- Personal domains: $PERSONAL_DOMAINS
-
-**Next steps:**
-1. Drop source material into `knowledge/raw/` and run `/knowledge-ingest`
-2. Capture tasks and projects with `/new`
-3. Generate your first daily plan with `/today`
-```
+1. Glob the created structure and diff it against the Architecture block from Step 2.
+2. Generate the report from that diff, grouped as:
+   - **Created** — directories and files this run created
+   - **Skipped** — already existed, left untouched
+   - **Missing** — declared in the Architecture block but still absent (should be empty; if not, say so and offer to fix)
+3. Verify the template-shipped infrastructure (`.claude/hooks/`, `.claude/settings.json`, `.claude/agents/`) exists; if any is missing, flag it with the advice to restore it from the template repo.
+4. Add the CLAUDE.md customization summary (name, language, work/personal domains) — only for substeps actually executed; list skipped substeps explicitly.
+5. Close with next steps: drop source material into `knowledge/raw/` and run `/knowledge-ingest`, capture tasks and projects with `/new`, generate the first daily plan with `/today`.
 
 ## Edge Cases
 
 - **Vault already partially set up** — check each directory/file before creating. Skip what exists, create what is missing. Report what was skipped vs. created.
-- **CLAUDE.md does not exist** — report the error; the user should clone or copy the template CLAUDE.md from the dual-brain repository first.
+- **CLAUDE.md does not exist** — abort with a clear message; Step 2 derives the scaffold from its Architecture block, so the wizard cannot run without it. The user should clone or copy the template CLAUDE.md from the dual-brain repository first.
 - **User provides no work domains** — use a single default `work/general` and note that they can customize later.
 - **User provides no personal domains** — omit the personal section entirely.
-- **Re-running setup** — safe to re-run. Existing files are not overwritten (check before write). Only CLAUDE.md customization is applied.
+- **Re-running setup** — NOT safe to re-run blindly: Step 4 would overwrite a grown domain taxonomy and customized CLAUDE.md sections with template text. Step 0 guards this — on an established vault (customized CLAUDE.md or non-empty `ops/`) the wizard aborts and only proposes missing structure elements, written solely after an explicit OK.
+
+## Stop — what this skill never does
+
+- Never writes before the re-run guard (Step 0) has passed: on an established vault (customized CLAUDE.md or non-empty `ops/`) the wizard aborts, proposes only missing structure elements, and creates them only after an explicit OK.
+- Never overwrites or replaces CLAUDE.md sections that deviate from the template; the deviation is the customization. Structural changes to an established CLAUDE.md go through `/second-brain-upgrade`.
+- Never deletes or overwrites existing directories and files; what exists is skipped and reported as "Skipped" in the Step 5 report.
+- Never creates or overwrites `.claude/hooks/`, `.claude/settings.json`, or `.claude/agents/` — those ship with the template repo; the wizard only verifies their presence.
+- Never hardcodes the directory list and never guesses a structure: if CLAUDE.md with its Architecture block is missing, the wizard aborts with a clear message.
+- Never copies the success report from this instruction text; Step 5 measures via glob diff against the Architecture block.
+
+## Done when
+
+- Every directory and `.md` file declared in the CLAUDE.md Architecture block exists (measured via glob diff, not asserted).
+- All template files carry their header content from Step 3; extra `.md` files without a template exist with an H1 and are flagged.
+- CLAUDE.md customization (name, language, domains) is applied for every substep whose anchor was present; skipped substeps are listed explicitly.
+- The Step 5 report groups Created / Skipped / Missing and includes the infrastructure verification result.

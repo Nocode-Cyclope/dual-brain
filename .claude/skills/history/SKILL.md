@@ -1,6 +1,13 @@
 ---
 name: history
-description: Shows recent vault activity from ops/chronicle.md and knowledge/wiki/log.md in a readable format. A substitute for git log without git versioning.
+description: >
+  Shows recent vault activity from ops/chronicle.md (operational events)
+  and knowledge/wiki/log.md (knowledge operations) in a readable format —
+  the curated audit trail. Where the vault is git-versioned, git log serves
+  as a second verification path. Use when the user says "what did I do
+  yesterday", "recent vault activity", "what happened this week in the
+  vault", "activity log", "vault log", or wants an audit trail of vault
+  operations.
 allowed-tools: Read, Grep, Bash
 ---
 
@@ -21,13 +28,14 @@ Shows the latest activities in the vault. Reads `ops/chronicle.md` (operational 
 ## Steps
 
 1. Derive timeframe from `$ARGUMENTS` (default 7 days).
-2. **Read both logs in parallel:**
-   - `ops/chronicle.md`
-   - `knowledge/wiki/log.md`
-3. Filter entries by date. Entry format: `## [YYYY-MM-DD] <operation> | <title>`.
+2. **Grep-first, never a full-text read** (both logs grow large over time; a full-text read returns wrong "latest activity" once read limits truncate the file):
+   - `grep -n "^## \[" ops/chronicle.md` and `grep -n "^## \[" knowledge/wiki/log.md` — all entry headers with line numbers.
+   - Filter the headers to the timeframe; load only the affected ranges via Read with offset/limit.
+3. Entry format: `## [YYYY-MM-DD] <operation> | <title>`. Both logs are declared newest-first (see the file heads) — still, never rely on the ordering; always filter by date.
 4. Sort chronologically descending per day.
 5. Summarize activities thematically (capture, completion, ingest, lint, migration, etc.).
-6. Output the report.
+6. **Verify counts:** check every event count in the report against `grep -c`, do not estimate.
+7. Output the report. If you suspect gaps in `knowledge/wiki/log.md` and the vault is git-versioned, use `git log -- knowledge/wiki/` as a second verification path.
 
 ## Output Format
 
@@ -57,6 +65,13 @@ Shows the latest activities in the vault. Reads `ops/chronicle.md` (operational 
 - Keep wikilinks in the report — the user can click directly
 - If the timeframe is empty: briefly communicate, do not fabricate
 - Make no statements about activity that is not in the log
+
+## Done when
+
+- The timeframe matches `$ARGUMENTS` (default 7 days) and is stated explicitly in the report.
+- No full-text read of the logs ran — only the header grep plus targeted offset/limit reads.
+- All event counts in the report are verified via `grep -c`, not estimated.
+- The report contains only activity evidenced in the logs (or `git log` as the second path); an empty timeframe is reported as empty.
 
 ## Related Skills
 

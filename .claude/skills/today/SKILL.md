@@ -1,6 +1,11 @@
 ---
 name: today
-description: Generates a daily plan from due tasks, active projects, and recent chronicle entries. Part of the Operations Layer.
+description: >
+  Generates the daily plan from due tasks, active projects, and recent chronicle
+  entries — including a knowledge briefing on the wiki pages relevant today. Use
+  when the user starts their day or says "what's on today", "daily plan", "start
+  the day", "my day", "what should I begin with". Not for the end-of-day review
+  (see /daily-review).
 allowed-tools: Read, Glob, Grep, Write, Edit
 ---
 
@@ -11,41 +16,35 @@ Generates the daily plan from vault contents.
 ## Steps
 
 1. Check whether `ops/daily/YYYY-MM-DD.md` (today's date) already exists — if so, read it first.
-2. **Find tasks via Grep** (never glob all tasks):
-   - `grep -l "due: YYYY-MM-DD" ops/tasks/*.md` (today's date) -> due today
-   - Dates before today -> overdue
-   - If nothing due: dates through end of week -> this week
-   - If still nothing: find the next due date
+2. **Find tasks via one-pass grep** (never glob all tasks):
+   - One run: `grep -H -E "^(due|status):" ops/tasks/*.md` — returns due date and status per task.
+   - The model does the date comparison, not the pattern: due < today → overdue, due = today → due today, due through Sunday → this week; otherwise name the next due date.
+   - Only `status: pending` and `status: in-progress` count; complete/cancelled are dropped.
+   - No date character-class patterns (`due: 2026-04-1[0-4]` and the like) — they break at month and year boundaries.
 3. Read only the found task files.
-4. `grep -l "status: active" ops/projects/*.md` -> read active projects.
-5. **Create knowledge briefing** (cross-layer step, see "Knowledge Briefing" section below).
+4. `grep -l "status: active" ops/projects/*.md` → read active projects.
+5. **Create the knowledge briefing** (cross-layer step, see the "Knowledge Briefing" section below).
 6. Extract recent activity from `ops/chronicle.md` and `knowledge/wiki/log.md` (today's date).
-7. Create or update `ops/daily/YYYY-MM-DD.md`.
+   - **Check sweep staleness:** `grep -E "^## \[.*\] ops-sweep" ops/chronicle.md` — determine the most recent date among the hits (filter by date, do not rely on ordering). If no entry exists or the most recent one is older than 30 days: add a notice line to the daily plan (see Output Format). Notice only — never auto-start `/ops-sweep`.
+7. Read the most recent existing daily note as the format template (the user's lived structure beats the template; the template below is only the cold-start skeleton), then create or update `ops/daily/YYYY-MM-DD.md`.
 
-## Task Discovery (Grep-first)
+## Task Discovery (Grep-first, one pass)
 
-All tasks have `due: YYYY-MM-DD` in frontmatter. Efficient discovery:
+All tasks carry `due: YYYY-MM-DD` and `status:` in frontmatter:
 
 ```bash
-# Today's tasks (insert today's date)
-grep -l "due: 2026-04-15" ops/tasks/*.md
-
-# Overdue: individual dates or range pattern
-grep -l "due: 2026-04-1[0-4]" ops/tasks/*.md  # days 10-14
-
-# This week
-grep -l "due: 2026-04-1[5-9]\|due: 2026-04-20" ops/tasks/*.md
+grep -H -E "^(due|status):" ops/tasks/*.md
 ```
 
-Only read files that Grep returns. Never global glob+read on all tasks.
+A single run over all tasks; the model does the date comparison and status filtering, not the pattern. Then read only the relevant files.
 
 ## Update Behavior
 
 If the daily file already exists:
 - Leave `[x]` completed items unchanged
-- Keep manually added items (not from vault)
-- Add new tasks from vault that are not yet present
-- Repopulate the recent-activity section with current state
+- Keep manually added items (not from the vault)
+- Add new tasks from the vault that are not yet present
+- Repopulate the recent-activity section with the current state
 - Preserve custom sections added by the user
 
 ## Knowledge Briefing
@@ -53,10 +52,10 @@ If the daily file already exists:
 For each active project and each task due today:
 
 1. **Check the `knowledge:` frontmatter field** of the file — if present, carry those wikilinks 1:1 into the briefing.
-2. **If no `knowledge:` field**: derive topics from the file body and tags, search `knowledge/wiki/index.md` for matching pages (max 2-3 per project).
+2. **If no `knowledge:` field**: derive topics from the file body and tags and search per CLAUDE.md → "Retrieval Order" (Parallel Retrieval: glossary expansion, cluster entry blocks, grep across all wiki folders, including `skills/`). Max 3 hits per project.
 3. **Check involved people** — if `[[ops/people/<slug>]]` is referenced, check whether `knowledge/wiki/entities/<slug>.md` exists.
 
-Keep the briefing compact: max 3-5 wiki references per project, brief justification in half a sentence.
+Keep the briefing compact: max 3 wiki references per project, brief justification in half a sentence.
 
 ## Output Format
 
@@ -89,11 +88,28 @@ tags: []
 
 ## Recent Activity
 - From chronicle.md / log.md for today
+- Last /ops-sweep: <date or "never"> → inventory sweep due (line only if the entry is missing or older than 30 days)
 
 ## Notes
 ```
 
 If zero knowledge matches: omit the section entirely instead of leaving it empty.
+
+## Done when
+
+- `ops/daily/YYYY-MM-DD.md` exists with `type: daily` frontmatter and today's `date:`.
+- Every task with `status: pending` or `in-progress` and `due:` up to today appears under "Due Today" or "Overdue" — cross-checked against the grep output from Step 2.
+- No task with `status: complete` or `cancelled` is listed.
+- If the daily note already existed: `[x]` items, manual items, and custom sections are unchanged.
+- The knowledge briefing has max 3 wiki references per project with a half-sentence justification; with zero hits the section is absent entirely.
+
+## Stop — what this skill never does
+
+- Never writes to any file other than `ops/daily/YYYY-MM-DD.md`. Tasks, projects, `chronicle.md`, and everything under `knowledge/` stay untouched (CLAUDE.md non-negotiable rules).
+- Never sets or changes the `knowledge:` frontmatter field in tasks or projects; /today only reads it (CLAUDE.md, Knowledge Bridge).
+- Never overwrites or deletes `[x]` items, manually added items, or custom sections in an existing daily note (see Update Behavior).
+- Never loads all tasks via glob+read and never builds date character-class patterns; task discovery runs exclusively through the one-pass grep from Step 2.
+- Never auto-starts `/ops-sweep`; on sweep staleness, only the notice line appears in the daily plan.
 
 ## Related Skills
 

@@ -75,23 +75,25 @@ Same pattern for other ambiguous fields when classification is certain but core 
 
 **Existing entities take precedence.** Do not create duplicates — update the existing file.
 
+The existence check for projects covers **both** canonical forms (`ops/projects/<slug>.md` AND `ops/projects/<slug>/README.md`), plus thematic matching per Continuous Routing Step 2 (see CLAUDE.md): scan `ops/projects/` for matching themes, people, and tags, scan `ops/tasks/` for open tasks in the same topic area, and check `ops/chronicle.md` for recent entries in the same theme. Do not match only on names — recognize thematic connections. Apply the confidence-based response table from Continuous Routing: a clear match (>0.8) means file into the existing project with brief info; a possible match (0.5–0.8) means asking "Could this be related to [[Project X]]?" before creating anything new.
+
 ## Knowledge Bridge
 
-For every **person**, **organization**, or **topic/concept** recognized from the input (e.g., "bid management", "storytelling", "partner-corp"):
+For every **person**, **organization**, or **topic/concept** recognized from the input (e.g., "user research", "storytelling", "partner-corp"):
 
-1. **Lookup** in `knowledge/wiki/`:
+1. **Lookup** in `knowledge/wiki/` — first expand terms with aliases from `glossary.md` (primary language <-> English), then search across all wiki folders (see CLAUDE.md -> Retrieval Order, light form):
    ```bash
    # People + Organizations
    ls knowledge/wiki/entities/ | grep -i "<name-slug>"
-   # Concepts / Topics
-   ls knowledge/wiki/concepts/ | grep -i "<topic-slug>"
+   # Concepts / Topics / Skills
+   grep -rli "<topic>" knowledge/wiki/concepts/ knowledge/wiki/skills/ knowledge/wiki/sources/
    ```
 2. **On match**, add the wikilink to the `knowledge:` frontmatter field of the new operations file (list). Example:
    ```yaml
    knowledge:
      - "[[knowledge/wiki/entities/john-doe]]"
      - "[[knowledge/wiki/entities/partner-corp]]"
-     - "[[knowledge/wiki/concepts/ai-readiness-assessment]]"
+     - "[[knowledge/wiki/concepts/user-research-methods]]"
    ```
 3. **In the body**, insert the wikilink where the name first appears — Obsidian renders the connection visibly.
 4. **In the response report**, briefly mention: "Knowledge bridge: John Doe exists as an entity in the wiki."
@@ -102,7 +104,7 @@ If no match exists but the person/topic is obviously "wiki-worthy" (e.g., import
 
 ## File Formats
 
-Paths and frontmatter must be strictly followed — `type` is vault-wide unique (for Dataview queries).
+Paths and frontmatter must be strictly followed — the vault-wide standard in CLAUDE.md ("Frontmatter — Vault-Wide Standard") is normative (single source); the blocks here are the path map and body skeletons. `type` is vault-wide unique (for Dataview queries across folders).
 
 ### Task -> `ops/tasks/<slug>.md`
 
@@ -110,26 +112,28 @@ Paths and frontmatter must be strictly followed — `type` is vault-wide unique 
 ---
 type: task
 status: pending
-due: 2026-04-20            # optional
+due: 2025-01-20            # optional
 project: "[[project-slug]]" # optional, wikilink
 tags: []
-created: 2026-04-15
-updated: 2026-04-15
+created: 2025-01-15
+updated: 2025-01-15
 ---
 
 Description of the task.
 ```
 
-### Project -> `ops/projects/<slug>.md`
+### Project -> `ops/projects/<slug>/README.md` (canonical form) or `ops/projects/<slug>.md` (lightweight form)
+
+Canonical is the directory with `README.md` plus artefacts (see CLAUDE.md); the flat file remains allowed for small projects without artefacts. The existence check before creating covers **both** forms, plus thematic matching per Continuous Routing Step 2.
 
 ```yaml
 ---
 type: project
 status: active
-owner: "[[user-name]]"      # optional
+owner: "[[owner-name]]"     # optional
 tags: []
-created: 2026-04-15
-updated: 2026-04-15
+created: 2025-01-15
+updated: 2025-01-15
 ---
 
 ## Next Action
@@ -146,12 +150,12 @@ updated: 2026-04-15
 ```yaml
 ---
 type: person
-last-contact: 2026-04-15
+last-contact: 2025-01-15
 role: ...                     # optional
 organization: "[[org-name]]"   # optional, wikilink
 tags: []
-created: 2026-04-15
-updated: 2026-04-15
+created: 2025-01-15
+updated: 2025-01-15
 ---
 
 ## Context
@@ -166,7 +170,7 @@ Who they are, relationship.
 ```yaml
 ---
 type: idea
-captured: 2026-04-15
+captured: 2025-01-15
 tags: []
 ---
 
@@ -178,7 +182,7 @@ Description of the idea.
 ```yaml
 ---
 type: inbox
-captured: 2026-04-15
+captured: 2025-01-15
 source: chat | email | call | manual
 tags: []
 ---
@@ -191,8 +195,8 @@ Raw content.
 ```yaml
 ---
 type: context
-created: 2026-04-15
-updated: 2026-04-15
+captured: 2025-01-15
+source: manual   # optional: chat | email | call | manual
 tags: []
 ---
 
@@ -205,9 +209,26 @@ Background information.
 
 Brief confirmation with wikilinks:
 
-> Created: [[ops/projects/q3-product-launch-onboarding]] (project), [[ops/tasks/create-faq-page]] (task, due 2026-04-22), updated: [[ops/people/sarah-miller]] (last-contact today).
+> Created: [[ops/projects/q3-product-launch-onboarding]] (project), [[ops/tasks/create-faq-page]] (task, due 2025-01-22), updated: [[ops/people/sarah-miller]] (last-contact today).
 
-## Non-Negotiable
+## Done when
 
-- **Never write directly to `knowledge/`.** Promotion is explicit (see CLAUDE.md).
-- **Frontmatter is mandatory** — `type`, `created`, `updated` always.
+- Every created file carries complete frontmatter per the CLAUDE.md standard (`type`, `created`, `updated`; for tasks also `status`).
+- Linking is bidirectional: task -> project is also recorded in the project file, project -> person also in the person file.
+- No duplicate was created — the existence check (both project forms, thematic matching) ran, and existing files were updated instead of re-created.
+- The `knowledge:` field is only set on a real wiki match, never speculatively.
+- The response report names every created or updated file as a wikilink.
+
+## Stop — what this skill never does
+
+- Never write outside the Operations Layer, and in particular never to `knowledge/` (CLAUDE.md Rule 3); wiki pages are only read and referenced via wikilink, promotion stays explicit.
+- Never guess when classification confidence is below 0.5; clarification runs through `AskUserQuestion`.
+- Never create an entity twice: before every creation, the existence check runs (both project forms, thematic matching), and existing files are updated via Read and Edit.
+- Never fill the `knowledge:` frontmatter field speculatively — only on a real wiki match.
+- Never write a file without complete frontmatter (`type`, `created`, `updated` per the CLAUDE.md standard).
+- Never force-translate English technical terms into the vault's primary language (CLAUDE.md Language).
+
+## Related Skills
+
+- `/today` — daily plan (creates or appends the daily note)
+- `/produce` — for substantive deliverables instead of quick capture

@@ -37,8 +37,23 @@ Farmers **always write to `ops/inbox/`** (or `ops/people/`, `ops/context/` when 
 Farmer-generated files carry in their frontmatter:
 ```yaml
 source: farmer/<name>
-farmed: 2026-04-15T14:32:00
+farmed: 2025-01-15T14:32:00
 ```
+
+## Done when
+
+- The farmer sub-agent ran (or a clear error was reported when the farmer file does not exist).
+- The report states counts of new and updated files and lists the created entities with their types.
+- All farmer-created files landed inside `ops/` and carry `source: farmer/<name>` and `farmed:` frontmatter.
+- Any problems from the farmer run are surfaced to the user, not swallowed.
+
+## Stop — what this skill never does
+
+- Never start a farmer whose file `.claude/agents/<name>-farmer.md` does not exist; instead, list available farmers and report the error (step 2).
+- Never fetch external sources itself or write farming results itself; this skill validates, starts the sub-agent, and reports — the farmer does the writing.
+- Never create new farmers or modify existing farmer files; that is what `/create-farmer` is for.
+- Never write to `knowledge/` or let anything write there (Filing Rule, CLAUDE.md Rule 3); farmer output lands in `ops/inbox/`, or in `ops/people/` / `ops/context/` when classification is clear.
+- Never promote farmer material into the Knowledge Layer automatically (CLAUDE.md Rule 4); valuable material goes exclusively through the explicit promotion workflow.
 
 ## Related Skills
 
