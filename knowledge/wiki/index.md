@@ -1,6 +1,6 @@
 # Wiki Index
 
-Master catalog and navigation page. Organized by category.
+Master catalog and navigation page. Organized by category. Dataview query blocks count as valid index linking, same as direct wikilinks.
 
 ## Sources
 
@@ -13,6 +13,10 @@ _Add entries here as entity pages are created._
 ## Concepts
 
 _Add entries here as concept pages are created._
+
+## Skills
+
+_Add entries here as skill pages are created._
 
 ## Synthesis
 

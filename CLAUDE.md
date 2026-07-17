@@ -17,7 +17,7 @@
 
 - **Input (`knowledge/raw/`, `ops/inbox/`):** Any language. Stored as received.
 - **Wiki pages and operations notes:** Written in the user's primary language (configured during `/setup-dual-brain`). Default: English.
-- **Technical terms:** English technical terms stay in English regardless of the primary language (e.g. "Prompt Engineering", "Lifecycle Services", "Bid Management"). No forced translations.
+- **Technical terms:** English technical terms stay in English regardless of the primary language (e.g. "Prompt Engineering", "Design Sprint", "Growth Marketing"). No forced translations.
 
 ---
 
@@ -32,6 +32,10 @@ You must not blur these modes.
 
 If it is not clearly obvious which mode a request belongs to, ask one short clarifying question before taking action.
 Do not guess.
+
+### Structural Changes
+
+When the user signals a structural change to the vault — new skill, CLAUDE.md edit, retrieval-logic change, write-permission change, promotion-path change, frontmatter schema change, architecture refactor — the `/second-brain-upgrade` skill takes precedence. It auto-triggers on those signals and enforces the Dual-Brain base principles (two layers, asymmetric flow, explicit promotion) before any proposal is drafted. See `.claude/skills/second-brain-upgrade/SKILL.md`.
 
 ## Operating Principle
 
@@ -64,7 +68,9 @@ knowledge/
     sources/
     entities/
     concepts/
+    skills/
     synthesis/
+    glossary.md
     index.md
     log.md
     overview.md
@@ -109,6 +115,8 @@ Use it to log:
 - promotions from `output/` into `knowledge/raw/`
 - cleanup events when relevant
 
+Entries are ordered **newest-first**: the most recent event sits at the top of the file. The same convention applies to `knowledge/wiki/log.md`.
+
 ### Knowledge Layer
 
 `knowledge/` is for long-term, curated, semantically organized knowledge.
@@ -140,9 +148,12 @@ The subdirectories have distinct purposes:
 - `sources/` — one summary page per ingested source
 - `entities/` — stable pages for people, organizations, products, tools, places, etc.
 - `concepts/` — ideas, methods, frameworks, theories, recurring patterns
+- `skills/` — executable LLM skill definitions (SOP prompts with input/output/instructions/definition-of-done) and skill-category overview pages; `type: skill`
 - `synthesis/` — comparisons, analyses, topic overviews, thematic summaries
+- `glossary.md` — alias expansion between the vault's primary language and English for retrieval (see Retrieval Order)
 - `index.md` — master catalog and navigation page for the wiki
-- `log.md` — chronological record of knowledge operations
+- `log.md` — chronological record of knowledge operations (newest-first)
+- `overview.md` — running synthesis of all knowledge
 
 Do not write casual or transient material directly into the wiki.
 
@@ -266,7 +277,7 @@ Before **any file is written** (whether through a skill or in free conversation)
 
 On every substantive interaction, check:
 - Does the message mention **people, organizations, concepts, or topics** that exist in the wiki?
-- Quick scan: match key terms from the message against `knowledge/wiki/index.md` and known entity/concept names.
+- Quick scan: run the Parallel Retrieval from "Retrieval Order" (glossary expansion, cluster entry blocks, grep over all five wiki folders) in its light, silent form — no query log, `index.md` only as greppable fallback.
 - On matches: read the relevant wiki pages and weave them into the response — even if the user did not explicitly ask for knowledge.
 
 **Example:** The user asks "How should we structure the README?" → no skill invocation, no routing action. But the wiki contains pages on writing frameworks, audience profiling, and document structure. Read those pages and let them inform the answer.
@@ -292,18 +303,36 @@ On a detected phase transition:
 
 ## Frontmatter — Vault-Wide Standard
 
-Every `.md` file (except `chronicle.md`, `log.md`, `index.md`, `overview.md` — those have their own format) gets frontmatter. `type` is **unique across the entire vault** — enables Dataview queries across folders.
+Every `.md` file (except `chronicle.md`, `log.md`, `index.md`, `overview.md`, `glossary.md` — those have their own format) gets frontmatter. `type` is **unique across the entire vault** — enables Dataview queries across folders.
 
 ### Knowledge Layer
 
 ```yaml
 ---
 title: Page Title
-type: source | entity | concept | synthesis
+type: source | entity | concept | synthesis | skill
 tags: [work/domain-a, ...]
 sources: ["[[source-filename]]"]
 created: 2025-01-15
 updated: 2025-01-15
+---
+```
+
+**Skill-specific fields (`type: skill`):**
+
+```yaml
+---
+title: "Skill: [Name]"
+type: skill
+skill_kind: executable | overview
+domain: [sales, content, leadership, ...]
+inputs_required: ["..."]                 # optional
+outputs: ["..."]                         # optional
+related_concepts: ["[[concepts/...]]"]   # optional
+tags: [...]
+sources: [...]
+created: ...
+updated: ...
 ---
 ```
 
@@ -321,7 +350,7 @@ created: 2025-01-15
 updated: 2025-01-15
 ---
 
-# Project
+# Project — canonical form: ops/projects/<slug>/README.md (directory with artefacts); flat ops/projects/<slug>.md allowed for small projects without artefacts
 ---
 type: project
 status: active | paused | complete | archived
@@ -380,7 +409,7 @@ Links an Operations file to relevant Knowledge pages. Maintained by skills (`/ne
 ```yaml
 ---
 type: deliverable
-output_type: concept | memo | email | pitch | analysis | faq | onepager | script
+output_type: concept | memo | email | pitch | analysis | faq | onepager | script | worksheet | social-media-post
 created: 2025-01-15
 project: "[[ops/projects/<slug>]]"
 addressed_to: ["[[ops/people/<slug>]]"]   # optional
@@ -440,9 +469,10 @@ Customize these to your domains. Add new domains any time — update this sectio
 ### May write carefully and structurally
 - `ops/chronicle.md`
 - `knowledge/raw/`
+- `knowledge/wiki/glossary.md` — only during Knowledge operations (alias maintenance in query/ingest); the glossary is retrieval infrastructure, not knowledge content
 
 ### Do not write casually
-- `knowledge/wiki/sources/`, `entities/`, `concepts/`, `synthesis/`
+- `knowledge/wiki/sources/`, `entities/`, `concepts/`, `skills/`, `synthesis/`
 - `knowledge/wiki/index.md`, `log.md`, `overview.md`
 
 These are maintained spaces and should only be updated during explicit Knowledge Mode operations.
@@ -461,6 +491,56 @@ These are maintained spaces and should only be updated during explicit Knowledge
 8. If uncertain about routing, ask before acting.
 9. Keep changes minimal and reversible when context is incomplete.
 10. Respect folder intent over convenience.
+11. Never invent plausible facts, numbers, quotes, or sources. When uncertain, mark it explicitly ("uncertain", "assumption", "unsourced") and name the gap openly instead of filling it. Not knowing is a good answer; a false claim does far more damage than an honest "I don't know".
+12. When the user offers a hypothesis, a quick dismissal, or a fast decision, give active pushback instead of reflecting their gut feeling back at them. Sparring-partner stance, not friendly confirmation.
+13. Before producing any substantive answer, consult the wiki — following the Retrieval Order (Parallel Retrieval in its light, silent form). Read the hits and weave them into the answer. "Substantive" = more than a plain acknowledgment.
+14. Treat material the user provides (examples, internal docs, files) as the primary reference and starting point of the task, not as its boundary. Keep visible what comes from the material and what was added from external knowledge. When the two contradict each other, name the contradiction instead of silently overwriting it.
+15. Verify important or error-prone results before finalizing, and not only against your own judgment ("sounds plausible" is not evidence). Check against something external where possible (a source, a tool, a calculation); for logic and arithmetic, take a second independent path and compare. Break large tasks into individually checkable steps.
+16. Actively offer unconventional ideas that deviate from mainstream consensus, but mark them explicitly as speculative or unsourced and never present them as established fact (see Rule 11).
+
+---
+
+## Self-Check
+
+For every substantive output, run a short self-check before sending and make its result visible in a compact footer at the end of the answer. **Visibility enforces discipline** — silent self-grading does not hold up: the rule exists, application slips through.
+
+**Format:**
+
+```
+Self-Check: Wiki ✓ (N pages) · Facts ✓ · [further items per output type]
+```
+
+Core items: Was the wiki consulted per Retrieval Order (and how many pages were read)? Are all facts, numbers, and quotes sourced or marked as uncertain? Add per-output-type items as your own discipline lessons accumulate (formatting rules, audience conventions, style constraints).
+
+If a check was skipped, mark it explicitly as `—` or `✗` instead of omitting it. The footer exists so the user immediately sees when the homework is missing.
+
+**Deliverables (`/produce`, `/delegate`) — Generator/Evaluator split:** For files that land in `output/`, the author does not certify their own work. The cold evaluation agent `.claude/agents/output-evaluator.md` does (it receives only the file path, reads the normative sources at runtime, and defaults to "flawed until proven"). The footer in the chat report states the verdict: `Evaluator ✓ cold (round N)` or `Evaluator ✗ (N findings open)` plus a visible findings list. After at most two correction rounds, deliver rather than block — the user decides. The deliverable file itself carries no footer. Chat answers keep the author self-check in the format above.
+
+**When the footer does NOT appear:**
+
+- Short confirmations and receipts ("OK", "Done", "Filed.")
+- Pure tool output, CLI results, frontmatter values
+- Tables without prose, plain enumerations
+
+---
+
+## File Operations Discipline
+
+Destructive file operations (deleting, moving outside the vault, overwriting) follow two mandatory rules. They also apply in auto-accept modes and after prior plan alignment.
+
+**Rule 1 — Never without explicit user confirmation.** A previously agreed plan or a general "good plan!" is *not* confirmation for the concrete execution. Before every delete, move, or overwrite step, insert a separate confirmation step:
+
+> "I would now delete/move these N files: [list]. OK?"
+
+Act only after an explicit "yes", "go", or "do it". Even for small quantities.
+
+**Rule 2 — Always plan the recovery path.** Before every deletion, check:
+
+1. Is the file under version control? If the vault is a git repository, committed history is the primary recovery path — but only for committed states. Uncommitted work remains unprotected.
+2. If not versioned or not yet committed: move to `archive/<YYYY-MM-DD>-<reason>/` instead of deleting. Recovery stays possible.
+3. `rm` and programmatic deletion (e.g. Python `Path.unlink()`) bypass the system trash. For recoverable actions, use `mv` (into `archive/`) or the system trash function.
+
+`rmdir` on verified empty directories is safe — it fails automatically if content remains.
 
 ---
 
@@ -492,17 +572,32 @@ Load context in this order:
 2. `ops/chronicle.md`
 3. relevant `ops/projects/`, `ops/tasks/`, `ops/daily/`, `ops/weekly/`
 4. relevant `ops/people/` and `ops/context/`
-5. **proactively** consult relevant `knowledge/wiki/` pages — whenever an Operations request involves people, organizations, concepts, frameworks, or topics that exist in the wiki, read and incorporate those pages. Goal: Operations work actively draws from the Knowledge Layer, not just case by case.
+5. **proactively** consult relevant `knowledge/wiki/` pages — whenever an Operations request involves people, organizations, concepts, frameworks, or topics that exist in the wiki, read and incorporate those pages. Access follows the same **Parallel Retrieval rule** as Knowledge work (see below): Cluster Entry + Grep both run, also from Ops. Ops reads the results — Ops never writes to the wiki. Goal: Operations work actively draws from the Knowledge Layer, not just case by case.
 
 **Cross-Layer Principle:** Operations *reads* from Knowledge freely and proactively. Operations *never writes* directly to Knowledge — promotion remains explicit and manual (see Promotion Workflow).
 
 ### For Knowledge work
+
 Load context in this order:
+
 1. directly referenced source(s) in `knowledge/raw/`
-2. `knowledge/wiki/index.md`
-3. relevant pages in `sources/`, `entities/`, `concepts/`, `synthesis/`
-4. `knowledge/wiki/log.md`
-5. only then relevant `ops/` materials if the user explicitly wants current-work context included
+2. `knowledge/wiki/glossary.md` — alias expansion (primary language ↔ English) before any search
+3. **Parallel Retrieval** — both paths always run, they are not fallbacks for each other:
+   - **Path A (Cluster Entry, situational):** A cluster is any page in `knowledge/wiki/synthesis/` carrying `cluster_tier` frontmatter — a `cluster-*.md` filename is convention, not the criterion. Each carries a mandatory block `## Entry points for requests`. Match the request situation against the lines of that block — the result is a concept (+ optionally a skill). A Dataview query on `cluster_tier` / `cluster_slug` / `concepts_covered` filters the candidate clusters quickly. For large clusters (`concepts_covered` above 50), always return the concrete entry-line hit, never the cluster page as a whole. (Distributor pages without `cluster_tier` only route onward and are exempt from `concepts_covered` checks.)
+   - **Path B (Grep, lexical):** With the glossary-expanded keywords, grep across `knowledge/wiki/concepts/`, `entities/`, `skills/`, `sources/`. Always run both primary-language and English variants. Direct concept hit, no cluster detour.
+4. `knowledge/wiki/index.md` only as fallback if both paths come back thin; grep into it for the term rather than loading the whole file
+5. read the relevant pages, enough for a grounded answer, not the whole wiki; follow wikilinks where they promise relevant context, including the unexpected cross-connection that gives a second brain its value. Keep implicit Axis-2 lookups lighter than explicit `/knowledge-query` or `/produce` runs, by judgment rather than a fixed hop count.
+6. `knowledge/wiki/log.md` when historical traces are needed
+7. only then relevant `ops/` materials if the user explicitly wants current-work context included
+
+**Both paths produce separate result lists.** Compare them:
+- **Overlap** (both paths find the same concept) → high confidence, central page for the answer
+- **Cluster-only hit** → the situational entry found something the grep keywords missed (often: the synonym bridge helped)
+- **Grep-only hit** → lexical match that the cluster entry block does not surface → **candidate for entry-block sharpening**
+
+Both path results are logged when `/knowledge-query` is invoked explicitly (under `ops/context/query-log/`). For implicit wiki consultations (Axis 2 of Continuous Routing), silent parallel execution without log writing is enough.
+
+**Single Source:** This Retrieval Order is the only normative description of the retrieval mechanics, vault-wide. Skills reference it and add only their skill-specific delta (caps, page budgets). Sub-agent prompts that cannot reliably load CLAUDE.md carry a marked compact version — kept in sync from here.
 
 Operations-first for execution.
 Knowledge-first for synthesis.
@@ -514,8 +609,8 @@ Knowledge-first for synthesis.
 ### Onboarding
 When scaffolding a new or updated Knowledge Layer:
 - ensure `knowledge/raw/` and `knowledge/wiki/` exist
-- ensure `sources/`, `entities/`, `concepts/`, and `synthesis/` exist
-- ensure `index.md` and `log.md` exist
+- ensure `sources/`, `entities/`, `concepts/`, `skills/`, and `synthesis/` exist
+- ensure `glossary.md`, `index.md`, `log.md`, and `overview.md` exist
 - ensure this config remains aligned with the actual structure
 
 ### Ingest
@@ -524,16 +619,18 @@ When ingesting from `knowledge/raw/`:
 - **before writing**, discuss 3-5 key takeaways with the user and wait for confirmation
 - create or update one page in `wiki/sources/`
 - create or update relevant pages in `entities/`, `concepts/`, and `synthesis/`
+- **Core-statement head (forward-only):** every new or touched `concept` and `synthesis` page opens directly under the H1 with a `> ` blockquote of 1–3 sentences carrying the core point self-sufficiently. This is primarily a writing rule: a page leads with its point, not with preamble. It pays off in retrieval only where heads are triaged via grep before whole pages are opened. It means a core statement, not an epigraph quote and not a provenance note. No retrofit of existing pages; older pages get the head the next time they are touched.
 - add or improve wikilinks between related pages
 - update `wiki/index.md`
-- append an operation entry to `wiki/log.md`
+- check `wiki/overview.md`, only update if the big picture genuinely shifts
+- append an operation entry to `wiki/log.md` (newest-first)
 - preserve contradictions and uncertainty explicitly when present
 
 A single source may legitimately update many wiki pages. ~10 pages per dense source is normal and expected.
 
 ### Query
 When answering from the Knowledge Layer:
-- use `wiki/index.md` to find relevant pages
+- follow the Retrieval Order (Parallel Retrieval: glossary, then cluster entry blocks + grep); `index.md` only as fallback if both paths come back thin
 - read the relevant wiki pages before answering
 - synthesize from the maintained wiki, not from memory alone
 - if the result is especially valuable, offer to save it as a synthesis page in `wiki/synthesis/`
@@ -543,10 +640,12 @@ When linting the Knowledge Layer:
 - check for broken wikilinks
 - find orphan pages
 - identify contradictions or stale claims
-- identify missing cross-references
-- identify gaps that suggest a needed entity, concept, or synthesis page
-- compare `knowledge/raw/` against `log.md` to find unprocessed sources
-- report findings clearly
+- find mentioned but non-existent concepts/entities
+- suggest missing cross-references
+- identify knowledge gaps that may require new sources
+- check index consistency
+- **unprocessed files**: detect via the canonical procedure in `.claude/skills/knowledge-lint/SKILL.md` → Check 8 (normalized matching against wikilink targets and `sources:` frontmatter across the whole wiki — never literal comparison against `log.md`)
+- report findings clearly, categorized: RED errors, YELLOW warnings, BLUE info
 - apply fixes only when requested or clearly safe
 
 ---
@@ -599,6 +698,8 @@ When asked to clean up Operations:
 - review stale material in `output/`
 - preserve only items that still serve active work or future promotion
 
+For a structured inventory pass over the Operations Layer and `output/`, use `/ops-sweep` — it produces confirmation-gated proposal lists instead of acting directly.
+
 ### Knowledge Hygiene
 `knowledge/raw/` should remain curated.
 `knowledge/wiki/` should remain coherent, linked, deduplicated, and useful.
@@ -620,7 +721,7 @@ Farmers are created by `/create-farmer` and triggered by `/farm <name>`. Each fa
 
 Farmers always write to `ops/inbox/` (or `ops/people/`, `ops/context/` when classification is clear). They never write to `knowledge/`. Farmer-created files include `source: farmer/<name>` and `farmed: <timestamp>` in frontmatter.
 
-The `.claude/agents/` directory and `ops/context/watchlists.md` are created by `/create-farmer` on first use, not by `/setup-dual-brain`.
+The `.claude/agents/` directory ships with the template (it carries the evaluation and council agents). `ops/context/watchlists.md` is created by `/create-farmer` on first use.
 
 ---
 

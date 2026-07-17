@@ -1,6 +1,6 @@
 # Knowledge Operations Log
 
-Chronological record of all knowledge operations. Append-only.
+Chronological record of all knowledge operations. Newest-first: add new entries at the top, directly under this header block.
 
 Format:
 ```

@@ -1,6 +1,6 @@
 # Operations Chronicle
 
-Operational audit trail. Append-only. Format: `## [DATE] operation | Title`.
+Operational audit trail. Newest-first: add new entries at the top, directly under this header block. Format: `## [DATE] operation | Title`.
 
 Use for:
 - Notable decisions

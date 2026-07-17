@@ -9,3 +9,6 @@ desktop.ini
 # Temp
 *.tmp
 *.bak
+
+# Python (hooks)
+__pycache__/
