@@ -4,6 +4,8 @@
 
 **Your second brain is half a brain. This adds the other half.**
 
+> **v2.0** — the first major upgrade: 5 new skills (18 total), a cold evaluation agent for deliverables, guardrail hooks, provenance markers for wiki claims, and a rewritten retrieval canon. Everything was battle-tested in a production vault for three months before landing here. Details in the [CHANGELOG](CHANGELOG.md).
+
 ---
 
 ## The Problem
@@ -47,9 +49,12 @@ knowledge/                    # Long-term memory
     sources/                  #   One summary per ingested source
     entities/                 #   People, orgs, products, tools
     concepts/                 #   Ideas, methods, frameworks
+    skills/                   #   Executable LLM skill definitions (SOPs)
     synthesis/                #   Cross-source analyses
+    glossary.md               #   Alias expansion for retrieval
     index.md                  #   Master catalog
-    log.md                    #   Operation log
+    log.md                    #   Operation log (newest-first)
+    overview.md               #   Running synthesis of all knowledge
 
 output/                       # Shared: deliverables, drafts, polished artifacts
 archive/                      # Cold storage
@@ -90,11 +95,17 @@ The dotted line is the whole point. Knowledge flows into daily work automaticall
 
 **Continuous Routing.** The system does not wait for you to invoke a skill. Every message you send is evaluated: Is this a new task? Does it belong to an existing project? What does the wiki know about this topic? This runs in the background on every interaction, not just when you type a slash command.
 
-**Cross-layer bridge.** A `knowledge:` frontmatter field in any operations file links it to relevant wiki pages. Obsidian backlinks make these connections visible in both directions. When you open a wiki page about "Bid Management," you see every project and task that drew from it.
+**Cross-layer bridge.** A `knowledge:` frontmatter field in any operations file links it to relevant wiki pages. Obsidian backlinks make these connections visible in both directions. When you open a wiki page about "Growth Marketing," you see every project and task that drew from it.
 
 **Knowledge-powered production.** `/produce` drafts memos, pitches, concepts, and analyses by actively pulling in two types of knowledge: methodological (how to write well, how to structure an argument) and specific (what you wrote about this topic before, what your wiki says about the people involved). Your 350 entries finally do something.
 
 **Explicit promotion.** Nothing moves from operations to knowledge automatically. The path is always: `ops/ > output/ > knowledge/raw/ > knowledge/wiki/`. Every step requires your decision. This keeps the wiki clean and the operations layer disposable.
+
+**Cold evaluation instead of self-certification.** Deliverables from `/produce` and `/delegate` are not graded by the model that wrote them. A separate read-only evaluator agent gets only the file path, reads the normative rules at runtime, and judges PASS/REJECT with a findings list. Generator and evaluator never share a context.
+
+**Provenance you can grep.** Ingested wiki pages tag every claim: `[verified]`, `[claim]`, `[unsourced ⚠️]`, `[speculation]`. Six months later you still know which statements stood on evidence and which were the author's opinion. `/knowledge-lint` checks the markers stay intact.
+
+**Guardrails as code, not as prose.** Two small Python hooks enforce the two rules that matter most when an LLM maintains your files: writes into `knowledge/wiki/` require a confirmation once per session, and delete commands always ask first. Both fail open — a broken hook never blocks you.
 
 ## Getting Started
 
@@ -125,7 +136,7 @@ cd my-vault
 claude
 ```
 
-Claude Code reads the `CLAUDE.md` in the vault root and loads all 13 skills automatically.
+Claude Code reads the `CLAUDE.md` in the vault root and loads all 18 skills automatically.
 
 ### 4. Run the setup wizard
 
@@ -177,17 +188,48 @@ The system builds itself as you use it. Capture into Operations, ingest into Kno
 | `/today` | Generates a daily plan from due tasks, active projects, and a knowledge briefing section with relevant wiki context. |
 | `/daily-review` | End-of-day review. Compares plan vs. reality, updates task statuses, logs observations. |
 | `/weekly-review` | Weekly summary. Identifies promotion candidates for the knowledge layer. |
-| `/produce` | Creates deliverables with active knowledge support. Pulls in methodological frameworks and specific prior work from the wiki. |
-| `/delegate` | Hands off a task to a sub-agent. Includes automatic knowledge discovery before the agent starts. |
+| `/produce` | Creates deliverables with active knowledge support. Pulls in methodological frameworks and specific prior work from the wiki. Certified by the cold evaluator agent, not by its author. |
+| `/delegate` | Hands off a task to a sub-agent. Includes automatic knowledge discovery before the agent starts, and the cold evaluator on the way back. |
+| `/ops-sweep` | Inventory grooming. Triages inbox, task statuses, and `output/` into confirmation-gated proposal lists. Never moves or deletes anything on its own. |
+| `/heartbeat` | Weekly read-only health report: inbox backlog, lint distance, overdue tasks, sweep staleness. Reports, changes nothing. |
 | `/history` | Shows recent vault activity from chronicle and wiki log. |
 | `/farm` | Triggers a context farmer to pull external sources into `ops/inbox/`. |
 | `/create-farmer` | Builds or schedules a context farmer for an external source (Slack, RSS, email). |
 
-### Setup
+### Decision Support
 
 | Skill | What it does |
 |---|---|
-| `/setup-dual-brain` | Interactive onboarding. Scaffolds the vault, configures domains, tailors CLAUDE.md. |
+| `/council` | Five isolated sub-agent roles (Skeptic, Philosopher, Visionary, Operator, Outsider) research a weighty question independently, cross-critique anonymously, and a Chair renders the verdict. Not for everyday yes/no questions. |
+
+### System
+
+| Skill | What it does |
+|---|---|
+| `/setup-dual-brain` | Interactive onboarding. Scaffolds the vault, configures domains, tailors CLAUDE.md. Refuses to scaffold over an established vault. |
+| `/second-brain-upgrade` | Meta-skill for structural changes. Enforces the Dual-Brain base principles before any new skill, schema, or architecture change is drafted. |
+| `/memory-lint` | Reviews accumulated memory lessons: classify, test effectiveness, and escalate (keep / sharpen / promote to CLAUDE.md / archive). |
+
+## Agents
+
+Three sub-agent definitions ship in `.claude/agents/`:
+
+| Agent | Role |
+|---|---|
+| `output-evaluator` | Cold evaluation of deliverables. Read-only, receives only a file path, reads the normative rules at runtime, judges PASS/REJECT. The Generator/Evaluator split: no model certifies its own writing. |
+| `council-insider` | Council member with wiki read access plus web research. |
+| `council-outsider` | Council member with web research only — deliberately blind to your vault, so one voice is never anchored by what you already believe. |
+
+Context farmers created by `/create-farmer` land in the same directory.
+
+## Guardrail Hooks
+
+Two small Python hooks in `.claude/hooks/`, wired via `.claude/settings.json`, enforce the vault's two most important protections deterministically:
+
+- **`wiki_ask_guard.py`** — the first write into `knowledge/wiki/` in a session asks for confirmation ("Do not write casually"); after one approval the session passes silently. `glossary.md` is exempt (declared retrieval infrastructure).
+- **`delete_guard.py`** — any delete command (`rm`, `Remove-Item`, `shutil.rmtree`, `unlink`, ...) asks first, per the File Operations Discipline: explicit OK plus a recovery path (`archive/` instead of hard delete).
+
+Both fail open: if a hook errors, the tool call runs normally. Requires Python 3 on PATH. To disable a hook, remove its entry from `.claude/settings.json`.
 
 ## Recommended Tools
 
